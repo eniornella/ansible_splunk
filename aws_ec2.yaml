@@ -1,0 +1,10 @@
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-2
+
+keyed_groups:
+  - prefix: Splunk
+    key: tags
+exclude_filters:
+- tag:Name:
+  - 'ansible'

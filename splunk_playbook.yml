@@ -1,0 +1,78 @@
+---
+- hosts: Splunk_Instance_SearchHead
+  vars:
+    ansible_user: splunk_user
+  tasks:
+    - name: Ping all Splunk Instances
+      ping:
+
+########### Install Splunk ##############
+  tasks:
+    - name: Download the .tgz file
+      ansible.builtin.get_url:
+        url: https://download.splunk.com/products/splunk/releases/9.0.5/linux/splunk-9.0.5-e9494146ae5c-Linux-x86_64.tgz
+        dest: /tmp/splunk-9.0.5-e9494146ae5c-Linux-x86_64.tgz
+    - name: Create Splunk folder in /opt if it does not exit
+      ansible.builtin.file:
+        path: /opt/splunk
+        state: directory
+        mode: '0755'
+      become: true
+      become_user: root
+    - name: Change ownership of /opt/splunk to splunk_user
+      ansible.builtin.file:
+        path: /opt/splunk
+        owner: splunk_user
+        group: splunk_user
+        state: directory
+      become: true
+      become_user: root
+
+    - name: Untar the file and store in /opt
+      ansible.builtin.unarchive:
+        src: /tmp/splunk-9.0.5-e9494146ae5c-Linux-x86_64.tgz   
+        dest: /opt/splunk           
+        remote_src: yes      
+        extra_opts: [--strip-components=1] 
+        #      become: true
+        #become_user: root
+
+    - name: Remove the downloaded .tgz file
+      ansible.builtin.file:
+        path: /tmp/splunk-9.0.5-e9494146ae5c-Linux-x86_64.tgz
+        state: absent
+
+#    - name: Echo a message into a file
+#      ansible.builtin.copy:
+#        content: "[user_info]
+#          USERNAME=admin
+#          PASSWORD=admin12345"
+#        dest: /opt/splunk/etc/system/local/user-seed.conf
+
+    - name: Echo Splunk Default Username and Password
+      ansible.builtin.lineinfile:
+        path: /opt/splunk/etc/system/local/user-seed.conf
+        line: "{{ item }}"
+        insertafter: EOF
+      with_items:
+        - "[user_info]"
+        - "USERNAME=admin"
+        - "PASSWORD=admin12345"
+
+    - name: Check if /opt/splunk/ftr file exists
+      ansible.builtin.stat:
+        path: /opt/splunk/ftr
+      register: ftr_file_stat
+      ignore_errors: true
+
+    - name: Install and Start  Splunk Enterprise
+      ansible.builtin.shell: |
+        /opt/splunk/bin/splunk start --accept-license --answer-yes 
+      when: ftr_file_stat.stat.exists
+
+    - name: Restart Splunk after Installation is complete
+      ansible.builtin.shell: |
+        /opt/splunk/bin/splunk restart
+
+
+
